@@ -25,14 +25,16 @@ NOSQL_FILE = "nosql_database.json"
 st.set_page_config(page_title="Sales Database Viewer", layout="wide")
 st.title("Sales Database Viewer")
 
-# ---- session state defaults ----------------------------------------------
-if "replication_log" not in st.session_state:
-    st.session_state.replication_log = []
+# ---- shared replication log ----------------------------------------------
+# @st.cache_resource keeps the log list persisted across reruns and background threads
+@st.cache_resource
+def get_replication_log():
+    return []
 
 # ---- helper: add a line to the log ----------------------------------------
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.replication_log.append(f"[{ts}] {msg}")
+    get_replication_log().append(f"[{ts}] {msg}")
 
 # ---- database helpers ----------------------------------------------------
 def get_sql_connection():
@@ -151,13 +153,13 @@ if view_mode == "SQL Database Only":
     df_sql = fetch_sql_all()
     df_show = search_df(df_sql, keyword)
     st.write(f"Showing {len(df_show)} records from SQLite.")
-    st.dataframe(df_show, use_container_width=True)
+    st.dataframe(df_show, width="stretch")
 
 elif view_mode == "NoSQL Database Only":
     df_nosql = fetch_nosql_all()
     df_show  = search_df(df_nosql, keyword)
     st.write(f"Showing {len(df_show)} records from TinyDB.")
-    st.dataframe(df_show, use_container_width=True)
+    st.dataframe(df_show, width="stretch")
 
 else:
     # combined view: merge and deduplicate by id
@@ -186,7 +188,7 @@ else:
 
     combined = search_df(combined, keyword)
     st.write(f"Showing {len(combined)} unique records (SQL + NoSQL merged, duplicates removed).")
-    st.dataframe(combined, use_container_width=True)
+    st.dataframe(combined, width="stretch")
 
 # ---- edit / update section -----------------------------------------------
 st.markdown("---")
@@ -272,6 +274,11 @@ if "editing_record" in st.session_state:
                     log(f"Lazy replication complete: ID {rid} propagated to NoSQL replica.")
 
                 t = threading.Thread(target=lazy_replicate, args=(rec_id, updates), daemon=True)
+                try:
+                    from streamlit.runtime.scriptrunner import add_script_run_ctx
+                    add_script_run_ctx(t)
+                except Exception:
+                    pass
                 t.start()
                 st.info("NoSQL replica will be updated in the background (simulated 2s delay).")
 
@@ -307,11 +314,12 @@ if "editing_record" in st.session_state:
 st.markdown("---")
 st.subheader("Replication Log")
 
-if st.session_state.replication_log:
-    log_text = "\n".join(reversed(st.session_state.replication_log))
+logs = get_replication_log()
+if logs:
+    log_text = "\n".join(reversed(logs))
     st.text_area("Log (newest first)", value=log_text, height=180)
     if st.button("Clear log"):
-        st.session_state.replication_log = []
+        get_replication_log().clear()
         st.rerun()
 else:
     st.write("No replication activity yet.")
