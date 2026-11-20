@@ -4,6 +4,11 @@
 ## Hanna Szalai
 
 A small Python application that demonstrates how data can be split and replicated across a SQL database (SQLite) and a NoSQL document store (TinyDB), with a Streamlit web interface for browsing, searching, and editing records.
+---
+
+## Video Demo
+
+[![Assignment 4 Video](https://img.youtube.com/vi/tOHIYRBaVEA/hqdefault.jpg)](https://youtu.be/tOHIYRBaVEA)
 
 ---
 
